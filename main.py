@@ -49,7 +49,13 @@ pytesseract.pytesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 SCAN_INTERVALS = [1, 2, 4, 6, 10]
 scan_interval_idx = 1  # default to 2s
 
-ICON_FILE = os.path.join(os.path.dirname(sys.argv[0]), "l2t.ico")
+def resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller extracts files to _MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+ICON_FILE = resource_path("l2t.ico")
 
 HELP_TEXT = """
 L2 Chat Overlay Translator – Help
