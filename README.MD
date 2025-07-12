@@ -172,3 +172,10 @@ pyinstaller --onefile --icon l2t.ico main.py
 
 - Built with ❤️ for the LU4 community by `.bogdani`
 - Uses [pytesseract](https://github.com/madmaze/pytesseract), [googletrans](https://github.com/ssut/py-googletrans), [pystray](https://github.com/moses-palmer/pystray), [Pillow](https://python-pillow.org/), [tkinter](https://docs.python.org/3/library/tkinter.html)
+
+---
+## ☕ Support / Donations
+
+If you found this tool helpful, consider supporting me on [Buy Me a Coffee](https://coff.ee/bodyionita)!
+
+*Every little bit helps me spend more time on helpful indie projects for the L2 and gaming community. Thank you!*
