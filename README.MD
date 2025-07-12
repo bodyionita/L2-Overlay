@@ -158,7 +158,7 @@ pyinstaller --onefile --icon l2t.ico main.py
 
 - **In-game (LU4):** Character: `xTitan`
 - **Discord:** `.bogdani`
-- **Issues/Suggestions:** [GitHub Issues](https://github.com/YOURNAME/l2t-overlay-chat-translator/issues)
+- **Issues/Suggestions:** [GitHub Issues](https://github.com/bodyionita/L2-Overlay/issues)
 
 ---
 
