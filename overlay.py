@@ -3,14 +3,14 @@ import win32gui
 import win32con
 from log_utils import log_action
 
-class OverlayWindow:
+class Overlay:
     def __init__(self, main_root, get_capture_region, font_size=12):
-        self.root = main_root
-        self.get_capture_region = get_capture_region  # function to get the capture region
+        self.main_root = main_root
+        self.get_capture_region = get_capture_region
         self.font_size = font_size
         self.overlay_window = None
         self.overlay_label = None
-        self.overlay_position = None  # (x, y) if user moves overlay, None=stick to region
+        self.overlay_position = None  # (x, y) if moved
         self.move_mode = False
 
     def set_clickthrough(self, enable):
@@ -53,7 +53,7 @@ class OverlayWindow:
         create_new = (self.overlay_window is None or not self.overlay_window.winfo_exists())
 
         if create_new:
-            self.overlay_window = tk.Toplevel(self.root)
+            self.overlay_window = tk.Toplevel(self.main_root)
             self.overlay_window.title("Translation")
             self.overlay_window.geometry(f"{width}x{height}+{ox}+{oy}")
             self.overlay_window.wm_attributes("-topmost", True)

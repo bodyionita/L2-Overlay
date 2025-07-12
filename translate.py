@@ -13,7 +13,7 @@ def get_text_from_chat(capture_region, overlay_obj):
         overlay_obj.hide()
         time.sleep(0.08)
         image = ImageGrab.grab(bbox=capture_region)
-        overlay_obj.show("...")  # Optional: show something until new translation
+        overlay_obj.show("reading text...")
         return pytesseract.image_to_string(image, lang='rus+eng')
     except Exception as e:
         log_error(f"OCR error: {e}")

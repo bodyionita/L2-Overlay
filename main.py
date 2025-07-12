@@ -9,7 +9,7 @@ import pystray
 from PIL import Image
 import sys
 
-from overlay import OverlayWindow
+from overlay import Overlay
 from region_selector import select_region
 from translate import get_text_from_chat, translate_text_google
 from log_utils import log_action, log_error, get_last_error
@@ -22,8 +22,23 @@ enabled = True
 ICON_FILE = os.path.join(os.path.dirname(sys.argv[0]), "l2t.ico")
 
 HELP_TEXT = """
-(see README.md for full details. check out https://github.com/bodyionita/L2-Overlay)
-Overlay window will appear over the chat region and can be dragged with Ctrl+Alt.
+# L2T Overlay Chat Translator — Help
+
+- Instantly translates your Lineage 2 chat (Russian to English) and overlays it on top of your chat window.
+- Overlay is click-through unless you hold Ctrl+Alt, then you can drag it.
+- Toggle, font, scan speed, logs, help, etc. from tray menu.
+
+## Shortcuts
+
+| Shortcut             | Action                                           |
+|----------------------|-------------------------------------------------|
+| Ctrl + Alt + T       | Toggle translation & overlay on/off             |
+| Ctrl + Alt + R       | Reselect chat region                            |
+| Ctrl + Alt + H       | Show this help/instructions window              |
+| (Tray menu only)     | Snap overlay back to chat region                |
+| Ctrl + Alt + Drag    | Move overlay window (while keys held)           |
+
+For more, see the README on GitHub.
 """
 
 def main():
@@ -34,33 +49,37 @@ def main():
     main_root = tk.Tk()
     main_root.withdraw()
 
-    # Region selection
+    log_action("App started. Beginning region selection...")
     capture_region = select_region(main_root)
+    log_action(f"Region selection returned: {capture_region}")
+
     if not capture_region:
         log_action("No region selected. Exiting.")
         return
 
-    # Overlay window
-    overlay = OverlayWindow(main_root, lambda: capture_region, font_size=current_font_size)
-
-    # Last chat hash
+    overlay = Overlay(main_root, lambda: capture_region, font_size=current_font_size)
     last_hash = None
 
     def monitor_chat():
         nonlocal last_hash
         while True:
-            if enabled:
-                text = get_text_from_chat(capture_region, overlay).strip()
-                if text:
-                    text_hash = hashlib.md5(text.encode()).hexdigest()
-                    if text_hash != last_hash:
-                        last_hash = text_hash
-                        translated = translate_text_google(text)
-                        if translated:
-                            overlay.show(translated)
-                            log_action("Translated and displayed chat text")
-            else:
-                overlay.hide()
+            try:
+                if enabled:
+                    text = get_text_from_chat(capture_region, overlay).strip()
+                    log_action(f"OCR raw result: '{text}'")
+                    if text:
+                        text_hash = hashlib.md5(text.encode()).hexdigest()
+                        if text_hash != last_hash:
+                            last_hash = text_hash
+                            translated = translate_text_google(text)
+                            log_action(f"Translated text: '{translated}'")
+                            if translated:
+                                main_root.after(0, overlay.show, translated)
+                                log_action("Translated and displayed chat text")
+                else:
+                    main_root.after(0, overlay.hide)
+            except Exception as e:
+                log_error(f"Error in monitor_chat: {e}")
             time.sleep(SCAN_INTERVALS[scan_interval_idx])
 
     def start_monitor():
@@ -76,14 +95,15 @@ def main():
             ctrlalt = ctrl and alt
             if ctrlalt != ctrlalt_prev:
                 ctrlalt_prev = ctrlalt
-                overlay.set_move_mode(ctrlalt)
-            # Shortcuts
+                main_root.after(0, overlay.set_move_mode, ctrlalt)
             if keyboard.is_pressed("ctrl+alt+t"):
-                nonlocal enabled
-                enabled = not enabled
-                log_action(f"Toggled all: {'ON' if enabled else 'OFF'} (hotkey)")
-                if not enabled:
-                    overlay.hide()
+                def toggle_en():
+                    global enabled
+                    enabled = not enabled
+                    log_action(f"Toggled all: {'ON' if enabled else 'OFF'} (hotkey)")
+                    if not enabled:
+                        overlay.hide()
+                main_root.after(0, toggle_en)
                 time.sleep(0.3)
             if keyboard.is_pressed("ctrl+alt+r"):
                 log_action("Region reselect triggered (hotkey)")
@@ -97,7 +117,6 @@ def main():
         threading.Thread(target=listen_for_hotkeys, daemon=True).start()
         log_action("Started hotkey listener thread")
 
-    # Help popup
     def show_help_window():
         help_win = tk.Toplevel(main_root)
         help_win.title("L2T Overlay Help / Instructions")
@@ -120,28 +139,31 @@ def main():
             overlay.snap_back()
             log_action("Region reselected by user.")
 
-    # Tray handlers
     def snap_overlay_back(icon=None, item=None):
-        overlay.snap_back()
+        main_root.after(0, overlay.snap_back)
 
     def toggle_enabled(icon, item):
-        nonlocal enabled
-        enabled = not enabled
-        log_action(f"Toggled all: {'ON' if enabled else 'OFF'} (tray)")
-        if not enabled:
-            overlay.hide()
+        def inner():
+            global enabled
+            enabled = not enabled
+            log_action(f"Toggled all: {'ON' if enabled else 'OFF'} (tray)")
+            if not enabled:
+                overlay.hide()
+        main_root.after(0, inner)
 
     def set_font_size(size):
         def handler(icon, item):
-            nonlocal current_font_size
-            current_font_size = size
-            overlay.set_font_size(size)
-            log_action(f"Font size changed to {size}")
+            def inner():
+                global current_font_size
+                current_font_size = size
+                overlay.set_font_size(size)
+                log_action(f"Font size changed to {size}")
+            main_root.after(0, inner)
         return handler
 
     def set_scan_interval(idx):
         def handler(icon, item):
-            nonlocal scan_interval_idx
+            global scan_interval_idx
             scan_interval_idx = idx
             log_action(f"Scan interval set to {SCAN_INTERVALS[idx]}s")
         return handler
@@ -160,14 +182,13 @@ def main():
             win = tk.Toplevel(main_root)
             win.title("Last Error")
             win.geometry("600x150+400+200")
-            from log_utils import get_last_error
             tk.Label(win, text=get_last_error() or "No errors logged.", font=("Arial", 10), justify="left", wraplength=580).pack(padx=10, pady=10)
             tk.Button(win, text="OK", command=win.destroy).pack(pady=10)
         except Exception as e:
             log_error(f"Error opening error popup: {e}")
 
     def test_overlay(icon, item):
-        overlay.show("Test overlay\nThis is a sample translation box.")
+        main_root.after(0, overlay.show, "Test overlay\nThis is a sample translation box.")
 
     def show_help(icon, item):
         main_root.after(0, show_help_window)
@@ -217,17 +238,18 @@ def main():
                         pystray.MenuItem("Exit", quit_app)
                     )
                 )
-                icon.run()
+                icon.run_detached()
+                log_action("System tray started with run_detached()")
             except Exception as e:
                 log_error(str(e))
 
         threading.Thread(target=tray_thread, daemon=True).start()
-        log_action("System tray setup complete")
+        log_action("System tray setup complete (thread started)")
 
-    # Start everything
     start_monitor()
     start_hotkey_listener()
     setup_tray()
+    log_action("Entering main Tk loop")
     main_root.mainloop()
 
 if __name__ == "__main__":
