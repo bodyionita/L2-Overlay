@@ -1,0 +1,6 @@
+pytesseract
+Pillow
+googletrans==4.0.0rc1
+pystray
+keyboard
+pywin32

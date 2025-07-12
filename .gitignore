@@ -1,0 +1,6 @@
+*.pyc
+__pycache__/
+dist/
+build/
+logs.txt
+L2T_Overlay.exe
