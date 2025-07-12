@@ -20,7 +20,7 @@ It lets you select your in-game chat window, then overlays instant, live Google 
 
 ### 1. **Download the release**
 
-- Head to [Releases](https://github.com/YOURNAME/l2t-overlay-chat-translator/releases) and grab the latest `L2T_Overlay_v0.1.zip`.
+- Head to [Releases](https://github.com/bodyionita/L2-Overlay/releases) and grab the latest `L2T_Overlay_v0.1.zip`.
 - Unzip anywhere.
 - Run `L2T_Overlay.exe`.
 
@@ -57,53 +57,108 @@ pyinstaller --onefile --icon l2t.ico main.py
 
 ---
 
-## How to Use
 
-1. **On first run, select your chat region.**
-2. **Overlay appears over chat and translates automatically.**
-3. **System tray menu lets you toggle, adjust, or open logs.**
-4. **Drag overlay with `Ctrl+Alt` + mouse.**
-5. **Snap overlay back via tray menu.**
-6. **Reselect region with `Ctrl+Alt+R`.**
-7. **Show help any time with `Ctrl+Alt+H` or tray menu.**
+## 📖 Features & Instructions
 
----
+### 🛠️ **What does L2T Overlay Chat Translator do?**
 
-## Privacy and Trust
-
-- **Open Source:** All code is on GitHub—inspect, fork, or contribute!
-- **No spyware, no hidden code, no networking except for Google Translate.**
-- **No data is ever stored or sent anywhere but Google (for translation only).**
-- **You can build it yourself!**
-
-### **Troubleshooting**
-
-- If translation doesn’t work, check logs in `logs.txt` (open via tray menu).
-- Overlay won’t move? Hold `Ctrl+Alt` and drag.
-- OCR weird? Try selecting a tighter region or changing font size in tray.
-- Crashes? Make sure Tesseract is installed and working.
+- Instantly **translates your Lineage 2 chat** (from Russian to English by default) using Google Translate, and overlays the translation over your game, in real time.
+- **Non-intrusive:** Overlay is always click-through (never blocks your mouse/game).
+- **Super easy to use:** Just drag to select your chat window once and you're set!
+- **All settings available from the tray icon**—adjust font, scan speed, logs, or snap overlay back instantly.
+- **Movable overlay:** Hold `Ctrl+Alt` and drag the overlay wherever you want.
+- **Open-source and privacy-first:** You see everything, no hidden code, no tracking, only Google Translate used for text translation.
 
 ---
 
-## Current Limitations
+### 🚦 **Quick Start**
 
-- **Only supports Russian-to-English** (more languages in the future—pull requests welcome!)
-- **Performance:** Built fast, may stutter on very slow PCs, especially when selecting region. Suggestions welcome!
-- Overlay drag is only available when holding `Ctrl+Alt`.
-- Game resolution/DPI weirdness may cause bugs.
+1. **Run the app.**
+2. **Select your in-game chat window:**  
+- The screen dims and shows instructions.
+- **Drag** to select your chat area.
+- Release mouse to confirm (ESC to cancel).
+3. **Play:**  
+- The overlay will appear on top of your chat and update with translations automatically.
 
 ---
 
-## Contact
+### ⌨️ **Shortcuts**
 
-**In-game (LU4):**  
-Character: `xTitan`
+| Shortcut             | Action                                           |
+|----------------------|-------------------------------------------------|
+| Ctrl + Alt + T       | Toggle translation & overlay on/off             |
+| Ctrl + Alt + R       | Reselect chat region                            |
+| Ctrl + Alt + H       | Show this help/instructions window              |
+| **(Tray menu only)** | Snap overlay back to chat region                |
+| **Ctrl + Alt + Drag**| Move overlay window (while keys held)           |
 
-**Discord:**  
-`.bogdani`
+---
 
-**Want to contribute or suggest improvements?**  
-- Open an [issue](https://github.com/YOURNAME/l2t-overlay-chat-translator/issues) or [pull request](https://github.com/YOURNAME/l2t-overlay-chat-translator/pulls)!
+### 🖱️ **Overlay Controls**
+
+- **Move overlay:** Hold `Ctrl+Alt` and drag overlay with mouse.
+- **Overlay always click-through** (never blocks your game!) unless you hold `Ctrl+Alt`.
+- **Snap Back:** In tray menu, choose “Snap Overlay Back” to reset overlay to chat region.
+- **Overlay follows chat region** when you reselect the region.
+
+---
+
+### 📝 **Tray Menu Features**
+
+- **Overlay**
+- Toggle On/Off (same as Ctrl+Alt+T)
+- Snap Overlay Back
+- Font Size (Small, Medium, Large)
+- **Reselect Region** (same as Ctrl+Alt+R)
+- **Scan** (change scan interval: 1s, 2s, 4s, 6s, 10s)
+- **Diagnostics**
+- View Logs (opens `logs.txt`)
+- Show Last Error
+- Test Overlay
+- **Help / Instructions** (same as Ctrl+Alt+H)
+- **Exit**
+
+---
+
+### 🔧 **Installation & Setup**
+
+1. **Python users:** See [Installation](#installation) above (Python, Tesseract, pip install requirements).
+2. **Everyone else:** Just download the `.exe` release, run, and play!
+
+---
+
+### ❓ **Troubleshooting**
+
+- **Overlay doesn’t appear:** Try running as admin, or check if you have multi-monitor weirdness.
+- **No translation:** Ensure Tesseract is installed and path in `main.py` matches.  
+- **Overlay stuck or can’t move:** Hold `Ctrl+Alt` and drag, or snap back via tray.
+- **Anything else:** Open logs (`logs.txt`), check error in tray, or contact me!
+
+---
+
+### 🔒 **Privacy & Security**
+
+- **100% Open Source**: All code is public, read it yourself!
+- **No background uploads, no ads, no tracking.**
+- **The only outgoing connection is to Google Translate’s API, to translate your chat.**
+- **You can always build from source and verify.**
+
+---
+
+### ⚠️ **Current Limitations**
+
+- Only **Russian-to-English** for now (but can be changed in code easily!)
+- Designed/tested on Windows and with LU4, may have quirks elsewhere.
+- Built fast—feedback, suggestions, and pull requests are very welcome!
+
+---
+
+### 👤 **Contact**
+
+- **In-game (LU4):** Character: `xTitan`
+- **Discord:** `.bogdani`
+- **Issues/Suggestions:** [GitHub Issues](https://github.com/YOURNAME/l2t-overlay-chat-translator/issues)
 
 ---
 

@@ -22,7 +22,7 @@ enabled = True
 ICON_FILE = os.path.join(os.path.dirname(sys.argv[0]), "l2t.ico")
 
 HELP_TEXT = """
-(see README.md for full details)
+(see README.md for full details. check out https://github.com/bodyionita/L2-Overlay)
 Overlay window will appear over the chat region and can be dragged with Ctrl+Alt.
 """
 
