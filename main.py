@@ -52,34 +52,48 @@ scan_interval_idx = 1  # default to 2s
 ICON_FILE = os.path.join(os.path.dirname(sys.argv[0]), "l2t.ico")
 
 HELP_TEXT = """
-L2 Chat Overlay Translator Help
+L2 Chat Overlay Translator – Help
 
-Usage:
- - On launch, select the in-game chat region by click+drag. This is the region that will be translated.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURES
+• Translates your Lineage 2 chat (Russian → English) and overlays result in-place.
+• Overlay is click-through by default. Hold Ctrl+Alt to drag/move the overlay window.
+• Tray icon and global hotkeys control everything. All logs/errors saved to logs.txt.
 
-Overlay:
- - The translation output window (overlay) will appear at the selected region.
- - You can MOVE the overlay window by holding Ctrl+Alt and dragging it with the mouse (click anywhere inside the overlay, drag).
-   The capture region remains unchanged—translation is always from the originally selected region.
-   The overlay is click-through unless Ctrl+Alt is held down!
- - Snap Overlay Back from the tray menu to instantly realign the overlay to the region.
- - Reselect region at any time from the tray menu or with Ctrl+Alt+R. The overlay resets to the new region.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SHORTCUTS
+• Ctrl+Alt+T   — Enable/Disable overlay + translation
+• Ctrl+Alt+R   — Reselect chat region (output snaps back to region)
+• Ctrl+Alt+H   — Show this help window
+• Ctrl+Alt+Drag — Move overlay with the mouse while holding keys
 
-Shortcuts:
- - Ctrl+Alt+T: Enable/Disable all translation and overlay.
- - Ctrl+Alt+R: Reselect the chat region.
- - Ctrl+Alt+H: Show this help window.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRAY MENU
+• Overlay → Toggle, Snap Overlay Back (realign overlay to region), Font Size
+• Scan → Scan Interval (how often chat is translated)
+• Diagnostics → View logs, Show last error, Test overlay
+• Help, Exit
 
-Tray menu:
- - Overlay: Toggle, Snap Back, Font Size.
- - Scan: Scan Interval.
- - Diagnostics: View Logs, Show Last Error, Test Overlay.
- - Help and Exit.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+USAGE NOTES
+• On startup, select your in-game chat region by click+drag. (ESC cancels.)
+• Overlay never captures itself (temporarily hidden during OCR).
+• Dragging the overlay does NOT affect the region being translated.
+• Overlay is click-through except when you hold Ctrl+Alt.
+• Use "Snap Overlay Back" in tray or reselect region (Ctrl+Alt+R) to realign overlay.
 
-Other info:
- - Everything is logged to logs.txt.
- - When overlay is visible, you can drag it ONLY with Ctrl+Alt held.
- - Overlay is never included in translation capture.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TROUBLESHOOTING / LIMITATIONS
+• Only translates Russian → English.
+• OCR accuracy may vary with chat fonts/backgrounds.
+• If translation or OCR ever stalls (more than 3 seconds), it's auto-cancelled and retried.
+• Google Translate may rate-limit on rapid use.
+• Logs and errors: See logs.txt (Diagnostics in tray menu).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTACT
+• Discord: .bogdani
+• GitHub: https://github.com/bodyionita/L2-Overlay
 """
 
 # === STATE ===
