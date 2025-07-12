@@ -35,18 +35,24 @@ It lets you select your in-game chat window, then overlays instant, live Google 
 
 2. **Install dependencies:**  
    Open a terminal in the project folder:
-```pip install -r requirements.txt```
+```
+pip install -r requirements.txt
+```
 
 3. **Install Tesseract OCR**  
 - Download and install: [Tesseract Windows installer](https://tesseract-ocr.github.io/tessdoc/Installation.html)
 - Make sure to update the path in `main.py` if you used a custom install location.
 
 4. **Run it:**  
-```python main.py```
+```
+python main.py
+```
 
 5. **(Optional) Build .exe:**  
-```pip install pyinstaller
-pyinstaller --onefile --icon l2t.ico main.py```
+```
+pip install pyinstaller
+pyinstaller --onefile --icon l2t.ico main.py
+```
 
 
 ---
