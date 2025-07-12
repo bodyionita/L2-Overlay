@@ -111,9 +111,14 @@ capture_region = None
 overlay_window = None
 overlay_label = None
 overlay_position = None  # (x, y) if user moves overlay, None=stick to region
+
 current_font_size = 12
+font_mode = "auto"  # "auto" or "fixed"
+current_font_size = 12  # tracked for fixed mode
+
 monitor_thread = None
 hotkey_thread = None
+
 move_mode = False   # True when Ctrl+Alt is held
 main_root = tk.Tk()
 main_root.withdraw()
@@ -212,6 +217,17 @@ def get_text_from_chat():
         log_error(f"OCR error: {e}")
         return ""
 
+def _get_text_bbox(text, font, max_width=None):
+    # Create a hidden window to measure actual pixel size
+    test_root = tk.Tk()
+    test_root.withdraw()
+    label = tk.Label(test_root, text=text, font=font, wraplength=max_width, justify="left")
+    label.update_idletasks()
+    w, h = label.winfo_reqwidth(), label.winfo_reqheight()
+    label.destroy()
+    test_root.destroy()
+    return w, h
+
 def _sanitize_text(text):
     # Remove leading/trailing blank lines and collapse multiple blank lines to single
     lines = [line.rstrip() for line in text.strip().splitlines()]
@@ -245,7 +261,7 @@ def _get_fitting_font_size(text, width, height, min_size=6, max_size=24, font_na
     return min_size
 
 def _show_translation_tk(text):
-    global overlay_window, overlay_label, overlay_position, current_font_size
+    global overlay_window, overlay_label, overlay_position, current_font_size, font_mode
     try:
         if not enabled:
             log_action("Overlay not shown (disabled)")
@@ -254,15 +270,23 @@ def _show_translation_tk(text):
             return
 
         x1, y1, x2, y2 = capture_region
-        width = x2 - x1
-        height = y2 - y1
+        region_width = x2 - x1
+        region_height = y2 - y1
 
-        # --- SANITIZE TEXT ---
         text = _sanitize_text(text)
 
-        # --- CHOOSE FONT SIZE TO FIT ---
-        best_font_size = _get_fitting_font_size(text, width-10, height-10)
-        current_font_size = best_font_size
+        if font_mode == "auto":
+            best_font_size = _get_fitting_font_size(text, region_width-10, region_height-10)
+            font = ("Arial", best_font_size)
+            overlay_width, overlay_height = region_width, region_height
+            log_action(f"Overlay AUTO font size: {best_font_size}")
+        else:
+            font = ("Arial", current_font_size)
+            # Calculate required size
+            overlay_width, overlay_height = _get_text_bbox(text, font)
+            overlay_width += 10  # padding
+            overlay_height += 10
+            log_action(f"Overlay FIXED font size: {current_font_size} -> overlay size {overlay_width}x{overlay_height}")
 
         if overlay_position is not None:
             ox, oy = overlay_position
@@ -273,7 +297,7 @@ def _show_translation_tk(text):
         if create_new:
             overlay_window = tk.Toplevel(main_root)
             overlay_window.title("Translation")
-            overlay_window.geometry(f"{width}x{height}+{ox}+{oy}")
+            overlay_window.geometry(f"{overlay_width}x{overlay_height}+{ox}+{oy}")
             overlay_window.wm_attributes("-topmost", True)
             overlay_window.attributes("-alpha", 0.7)
             overlay_window.configure(bg="black")
@@ -282,12 +306,12 @@ def _show_translation_tk(text):
             overlay_label = tk.Label(
                 overlay_window,
                 text=text,
-                font=("Arial", best_font_size),
+                font=font,
                 bg="black",
                 fg="yellow",
                 justify="left",
                 anchor="nw",
-                wraplength=width-10
+                wraplength=(overlay_width-10 if font_mode == "auto" else 0)
             )
             overlay_label.pack(fill="both", expand=True, padx=5, pady=5)
 
@@ -295,14 +319,14 @@ def _show_translation_tk(text):
             update_overlay_drag_bindings()
             log_action("Created overlay window")
         else:
-            overlay_window.geometry(f"{width}x{height}+{ox}+{oy}")
+            overlay_window.geometry(f"{overlay_width}x{overlay_height}+{ox}+{oy}")
 
-        overlay_label.config(text=text, font=("Arial", best_font_size), wraplength=width-10)
+        overlay_label.config(text=text, font=font, wraplength=(overlay_width-10 if font_mode == "auto" else 0))
         overlay_window.deiconify()
         overlay_window.lift()
         set_overlay_clickthrough(not move_mode)
         update_overlay_drag_bindings()
-        log_action(f"Updated overlay with new translation, font size={best_font_size}")
+        log_action(f"Updated overlay with new translation, font_mode={font_mode}, size={font[1]}")
 
     except Exception:
         log_error(traceback.format_exc())
@@ -561,11 +585,26 @@ def quit_app(icon, item):
     os._exit(0)
 
 def setup_tray():
+    def set_font_mode_auto(icon, item):
+        global font_mode
+        font_mode = "auto"
+        log_action("Font mode set to AUTO")
+
+    def set_font_size_fixed(size):
+        def handler(icon, item):
+            global font_mode, current_font_size
+            font_mode = "fixed"
+            current_font_size = size
+            log_action(f"Font mode set to FIXED, size {size}")
+        return handler
+
     font_menu = pystray.Menu(
-        pystray.MenuItem("Small (9)", set_font_size(9)),
-        pystray.MenuItem("Medium (12)", set_font_size(12)),
-        pystray.MenuItem("Large (16)", set_font_size(16))
+        pystray.MenuItem("Auto (fit)", set_font_mode_auto, checked=lambda item: font_mode=="auto"),
+        pystray.MenuItem("Small (9)", set_font_size_fixed(9), checked=lambda item: font_mode=="fixed" and current_font_size==9),
+        pystray.MenuItem("Medium (12)", set_font_size_fixed(12), checked=lambda item: font_mode=="fixed" and current_font_size==12),
+        pystray.MenuItem("Large (16)", set_font_size_fixed(16), checked=lambda item: font_mode=="fixed" and current_font_size==16),
     )
+
     overlay_menu = pystray.Menu(
         pystray.MenuItem("Toggle On/Off (Ctrl+Alt+T)", toggle_enabled),
         pystray.MenuItem("Snap Overlay Back", snap_overlay_back),
