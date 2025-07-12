@@ -212,8 +212,40 @@ def get_text_from_chat():
         log_error(f"OCR error: {e}")
         return ""
 
+def _sanitize_text(text):
+    # Remove leading/trailing blank lines and collapse multiple blank lines to single
+    lines = [line.rstrip() for line in text.strip().splitlines()]
+    new_lines = []
+    prev_blank = False
+    for line in lines:
+        if line.strip() == "":
+            if not prev_blank:
+                new_lines.append("")
+            prev_blank = True
+        else:
+            new_lines.append(line)
+            prev_blank = False
+    return "\n".join(new_lines).replace("\n\n", "\n")
+
+def _get_fitting_font_size(text, width, height, min_size=6, max_size=24, font_name="Arial"):
+    # Try from max_size down to min_size until text fits
+    test_root = tk.Tk()
+    test_root.withdraw()
+    for size in reversed(range(min_size, max_size+1)):
+        font = (font_name, size)
+        label = tk.Label(test_root, text=text, font=font, wraplength=width, justify="left")
+        label.update_idletasks()
+        req_width = label.winfo_reqwidth()
+        req_height = label.winfo_reqheight()
+        label.destroy()
+        if req_width <= width and req_height <= height:
+            test_root.destroy()
+            return size
+    test_root.destroy()
+    return min_size
+
 def _show_translation_tk(text):
-    global overlay_window, overlay_label, overlay_position
+    global overlay_window, overlay_label, overlay_position, current_font_size
     try:
         if not enabled:
             log_action("Overlay not shown (disabled)")
@@ -224,6 +256,13 @@ def _show_translation_tk(text):
         x1, y1, x2, y2 = capture_region
         width = x2 - x1
         height = y2 - y1
+
+        # --- SANITIZE TEXT ---
+        text = _sanitize_text(text)
+
+        # --- CHOOSE FONT SIZE TO FIT ---
+        best_font_size = _get_fitting_font_size(text, width-10, height-10)
+        current_font_size = best_font_size
 
         if overlay_position is not None:
             ox, oy = overlay_position
@@ -243,11 +282,12 @@ def _show_translation_tk(text):
             overlay_label = tk.Label(
                 overlay_window,
                 text=text,
-                font=("Arial", current_font_size),
+                font=("Arial", best_font_size),
                 bg="black",
                 fg="yellow",
                 justify="left",
-                anchor="nw"
+                anchor="nw",
+                wraplength=width-10
             )
             overlay_label.pack(fill="both", expand=True, padx=5, pady=5)
 
@@ -257,12 +297,12 @@ def _show_translation_tk(text):
         else:
             overlay_window.geometry(f"{width}x{height}+{ox}+{oy}")
 
-        overlay_label.config(text=text, font=("Arial", current_font_size))
+        overlay_label.config(text=text, font=("Arial", best_font_size), wraplength=width-10)
         overlay_window.deiconify()
         overlay_window.lift()
         set_overlay_clickthrough(not move_mode)
         update_overlay_drag_bindings()
-        log_action("Updated overlay with new translation")
+        log_action(f"Updated overlay with new translation, font size={best_font_size}")
 
     except Exception:
         log_error(traceback.format_exc())
