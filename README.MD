@@ -68,6 +68,16 @@ pyinstaller --onefile --icon l2t.ico main.py
 - **All settings available from the tray icon**—adjust font, scan speed, logs, or snap overlay back instantly.
 - **Movable overlay:** Hold `Ctrl+Alt` and drag the overlay wherever you want.
 - **Open-source and privacy-first:** You see everything, no hidden code, no tracking, only Google Translate used for text translation.
+- Visual region border: A fine gold rectangle can be displayed around your selected chat area at all times, helping you remember exactly what will be translated. (Enable or disable at any time from the menu.)
+---
+
+### Overlay Region Border
+
+The **Show Region Border** feature draws a fine gold rectangle around the region you selected for translation. This is an independent floating window, always on top and click-through, so it never blocks your game or overlay.
+
+- **Toggle ON/OFF** at any time from the tray or overlay menu ("Show Region Border").
+- **The border does not affect translation or overlay position**; it's purely for reference and peace of mind.
+- If you change the region, the border instantly updates to match.
 
 ---
 
@@ -85,29 +95,15 @@ pyinstaller --onefile --icon l2t.ico main.py
 
 ### ⌨️ **Shortcuts**
 
-| Shortcut             | Action                                           |
-|----------------------|-------------------------------------------------|
-| Ctrl + Alt + T       | Toggle translation & overlay on/off             |
-| Ctrl + Alt + R       | Reselect chat region                            |
-| Ctrl + Alt + H       | Show this help/instructions window              |
-| **(Tray menu only)** | Snap overlay back to chat region                |
-| **Ctrl + Alt + Drag**| Move overlay window (while keys held)           |
 ---
 ### ⚠️ Game Hotkey Limitation
 
-**Note:** Due to how most games (including Lineage 2) capture keyboard input, the global hotkeys for toggling the overlay, region select, and help window may not work while the game is focused.  
-You can always control the app via the tray icon, or by clicking the menu button on the overlay itself.
+**Note:** Hotkeys (Ctrl+Alt+...) do **not** work while the Lineage 2 window is focused, due to the game capturing input.
+Use the tray icon, or the header ☰ menu on the overlay, for all controls and settings, including toggling the region border.
+
 
 ---
 
-### 🖱️ **Overlay Controls**
-
-- **Move overlay:** Hold `Ctrl+Alt` and drag overlay with mouse.
-- **Overlay always click-through** (never blocks your game!) unless you hold `Ctrl+Alt`.
-- **Snap Back:** In tray menu, choose “Snap Overlay Back” to reset overlay to chat region.
-- **Overlay follows chat region** when you reselect the region.
-
----
 
 ### 📝 **Tray Menu Features**
 
@@ -139,7 +135,8 @@ You can always control the app via the tray icon, or by clicking the menu button
 - **No translation:** Ensure Tesseract is installed and path in `main.py` matches.  
 - **Overlay stuck or can’t move:** Hold `Ctrl+Alt` and drag, or snap back via tray.
 - **Anything else:** Open logs (`logs.txt`), check error in tray, or contact me!
-
+- If the gold border does not appear, try toggling "Show Region Border" off and on in the menu.
+- If something is wrong or the overlay is misaligned, use "Reselect Region" or "Snap Overlay Back".
 ---
 
 ### 🔒 **Privacy & Security**

@@ -58,11 +58,12 @@ FEATURES
 • Overlay header is always visible, always clickable (status, ☰ menu).
 • Translation region never flickers; only its text changes.
 • Font size can be auto-fit or fixed (window grows to fit).
+• **New:** A gold border can be displayed around your selected chat region for easy visual reference. Enable/disable in the menu ("Show Region Border").
 • Tray menu and overlay ☰ menu control everything. All logs/errors saved to logs.txt.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TRAY & OVERLAY MENU
-• Overlay → Toggle, Snap Overlay Back, Font Size, Border
+• Overlay → Toggle, Snap Overlay Back, Font Size, Border, Show Region Border
 • Scan → Scan Interval (how often chat is translated)
 • Diagnostics → View logs, Show last error, Test overlay
 • Help, Exit
@@ -71,13 +72,14 @@ TRAY & OVERLAY MENU
 USAGE NOTES
 • On startup, select your in-game chat region by click+drag. (ESC cancels.)
 • Overlay never captures itself (temporarily blanks text during OCR).
+• A gold border box highlights your selected region. Toggle it ON/OFF from any menu.
 • Dragging the overlay region or header does NOT affect the region being translated.
 • Overlay is click-through except when you move it.
 • Use "Snap Overlay Back" in menu or reselect region to realign overlay.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SHORTCUTS
-• Global hotkeys (Ctrl+Alt+...) are unreliable in-game.
+• Global hotkeys (Ctrl+Alt+...) are unreliable in-game (Lineage 2 often captures them).  
 • Always use the tray icon or overlay menu (☰) for control.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -93,6 +95,7 @@ CONTACT
 • Discord: .bogdani
 • GitHub: https://github.com/bodyionita/L2-Overlay
 """
+
 
 # === STATE ===
 
