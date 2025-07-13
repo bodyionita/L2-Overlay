@@ -92,6 +92,11 @@ pyinstaller --onefile --icon l2t.ico main.py
 | Ctrl + Alt + H       | Show this help/instructions window              |
 | **(Tray menu only)** | Snap overlay back to chat region                |
 | **Ctrl + Alt + Drag**| Move overlay window (while keys held)           |
+---
+### ⚠️ Game Hotkey Limitation
+
+**Note:** Due to how most games (including Lineage 2) capture keyboard input, the global hotkeys for toggling the overlay, region select, and help window may not work while the game is focused.  
+You can always control the app via the tray icon, or by clicking the menu button on the overlay itself.
 
 ---
 
