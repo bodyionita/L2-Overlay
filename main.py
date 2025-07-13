@@ -1,5 +1,5 @@
 import pytesseract
-from PIL import ImageGrab, Image, ImageTk, ImageDraw
+from PIL import ImageGrab, Image, ImageTk, ImageDraw, ImageFont
 from googletrans import Translator
 import threading
 import time
@@ -49,27 +49,20 @@ pytesseract.pytesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 SCAN_INTERVALS = [1, 2, 4, 6, 10]
 scan_interval_idx = 1  # default to 2s
 
-def resource_path(relative_path):
-    if hasattr(sys, '_MEIPASS'):
-        # PyInstaller extracts files to _MEIPASS
-        return os.path.join(sys._MEIPASS, relative_path)
-    return os.path.join(os.path.abspath("."), relative_path)
-
-ICON_FILE = resource_path("l2t.ico")
-
 HELP_TEXT = """
 L2 Chat Overlay Translator – Help
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FEATURES
 • Translates your Lineage 2 chat (Russian → English) and overlays result in-place.
-• Overlay is click-through by default. Overlay/tray menu always available for control.
+• Overlay header is always visible, always clickable (status, ☰ menu).
+• Translation region never flickers; only its text changes.
 • Font size can be auto-fit or fixed (window grows to fit).
 • Tray menu and overlay ☰ menu control everything. All logs/errors saved to logs.txt.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TRAY & OVERLAY MENU
-• Overlay → Toggle, Snap Overlay Back, Font Size
+• Overlay → Toggle, Snap Overlay Back, Font Size, Border
 • Scan → Scan Interval (how often chat is translated)
 • Diagnostics → View logs, Show last error, Test overlay
 • Help, Exit
@@ -77,15 +70,15 @@ TRAY & OVERLAY MENU
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 USAGE NOTES
 • On startup, select your in-game chat region by click+drag. (ESC cancels.)
-• Overlay never captures itself (temporarily hidden during OCR).
-• Dragging the overlay does NOT affect the region being translated.
-• Overlay is click-through except when you open the menu or move it.
+• Overlay never captures itself (temporarily blanks text during OCR).
+• Dragging the overlay region or header does NOT affect the region being translated.
+• Overlay is click-through except when you move it.
 • Use "Snap Overlay Back" in menu or reselect region to realign overlay.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SHORTCUTS
-• Global hotkeys (Ctrl+Alt+...) are unreliable while Lineage 2 or most games are focused!
-• Always use the tray icon or overlay menu button (☰) for control.
+• Global hotkeys (Ctrl+Alt+...) are unreliable in-game.
+• Always use the tray icon or overlay menu (☰) for control.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TROUBLESHOOTING / LIMITATIONS
@@ -116,19 +109,72 @@ monitor_thread = None
 move_mode = False   # True when moving overlay
 main_root = tk.Tk()
 main_root.withdraw()
-status_label = None  # Overlay status header
-menu_btn = None      # Overlay ☰ menu button
+border_mode = "none"  # "none" or "thin"
+
+# === HEADER WINDOW (MENU + STATUS) ===
+header_window = None
+status_label = None
+menu_btn = None
+
+# === ANIMATION STATE ===
+busy_anim_running = False
+busy_anim_dots = 0
 
 selecting_region = False
+
+# === TRAY ICON (GENERATED IN MEMORY) ===
+def generate_tray_icon():
+    size = 64
+    img = Image.new('RGBA', (size, size), (112, 0, 36, 255))  # burgundy
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("arialbd.ttf", 34)
+    except:
+        font = ImageFont.load_default()
+    text = "L2T"
+    tw, th = draw.textbbox((0, 0), text, font=font)[2:]
+    draw.text(((size-tw)//2, (size-th)//2), text, font=font, fill=(255,215,0,255))
+    return img
 
 # === STATUS UPDATE ===
 
 def set_status(msg, temporary=False):
-    if status_label and status_label.winfo_exists():
-        status_label.config(text=msg)
-        if temporary:
-            status_label.after(2000, lambda: status_label.config(
-                text="Translating..." if enabled else "Paused"))
+    global status_label
+    try:
+        if status_label and status_label.winfo_exists():
+            status_label.config(text=msg)
+            if temporary:
+                def reset():
+                    if status_label and status_label.winfo_exists():
+                        status_label.config(text="Translating..." if enabled else "Paused")
+                status_label.after(2100, reset)
+    except Exception as e:
+        log_error(f"set_status error: {e}")
+
+def animate_busy_status():
+    global busy_anim_running, busy_anim_dots
+    if not busy_anim_running:
+        return
+    dots = "." * (1 + (busy_anim_dots % 3))
+    set_status(f"Translating{dots}")
+    busy_anim_dots = (busy_anim_dots + 1) % 3
+    # Only animate if label exists
+    try:
+        if status_label and status_label.winfo_exists():
+            status_label.after(400, animate_busy_status)
+    except Exception as e:
+        log_error(f"animate_busy_status error: {e}")
+
+def start_busy_animation():
+    global busy_anim_running, busy_anim_dots
+    busy_anim_running = True
+    busy_anim_dots = 0
+    animate_busy_status()
+
+def stop_busy_animation():
+    global busy_anim_running
+    busy_anim_running = False
+    set_status("Translating..." if enabled else "Paused")
 
 # === UTIL ===
 
@@ -201,17 +247,22 @@ def do_move(event):
     y = overlay_window.winfo_y() + event.y - overlay_window._drag_start_y
     overlay_window.geometry(f"+{x}+{y}")
     overlay_position = (x, y)
+    # Move header window too
+    if header_window:
+        hx = x
+        hy = y - header_window.winfo_height()
+        header_window.geometry(f"+{hx}+{max(0, hy)}")
 
 def end_move(event):
-    global overlay_position, move_mode
-    if not move_mode: return
-    move_mode = False
+    global overlay_position
+    if not move_mode:
+        return
     x = overlay_window.winfo_x()
     y = overlay_window.winfo_y()
     overlay_position = (x, y)
-    set_overlay_clickthrough(True)
-    set_status(f"Overlay moved to {overlay_position}", temporary=True)
     log_action(f"Overlay moved to ({x}, {y}) by mouse drag")
+    disable_overlay_drag_mode()
+
 
 def update_overlay_drag_bindings():
     if overlay_window and overlay_window.winfo_exists() and overlay_label:
@@ -226,6 +277,95 @@ def update_overlay_drag_bindings():
         overlay_label.bind('<ButtonRelease-1>', end_move)
         overlay_label.config(cursor="fleur")
 
+# === HEADER WINDOW ===
+
+def enable_overlay_drag_mode():
+    if overlay_window and overlay_window.winfo_exists():
+        set_overlay_clickthrough(False)
+        update_overlay_drag_bindings()
+        overlay_window.config(cursor="fleur")
+        if overlay_label:
+            overlay_label.config(cursor="fleur")
+        set_status("Drag overlay to move", temporary=True)
+        # Cancel any previous timer
+        if hasattr(enable_overlay_drag_mode, 'timer_id'):
+            overlay_window.after_cancel(enable_overlay_drag_mode.timer_id)
+        # Automatically return to click-through in 5 seconds
+        enable_overlay_drag_mode.timer_id = overlay_window.after(5000, disable_overlay_drag_mode)
+        
+
+def disable_overlay_drag_mode():
+    if overlay_window and overlay_window.winfo_exists():
+        set_overlay_clickthrough(True)
+        update_overlay_drag_bindings()
+        overlay_window.config(cursor="")
+        if overlay_label:
+            overlay_label.config(cursor="")
+        set_status("Translating..." if enabled else "Paused")
+
+
+def show_header_window(x, y, width):
+    global header_window, status_label, menu_btn
+    if header_window and header_window.winfo_exists():
+        header_window.geometry(f"{width}x36+{x}+{max(0, y-36)}")
+        return
+    header_window = tk.Toplevel(main_root)
+    header_window.title("L2T Overlay Header")
+    header_window.geometry(f"{width}x36+{x}+{max(0, y-36)}")
+    header_window.wm_attributes("-topmost", True)
+    header_window.attributes("-alpha", 0.94)
+    header_window.overrideredirect(True)
+    header_window.configure(bg="#221b23")
+    # Thin border for header? Always none.
+    # --- HEADER CONTENT ---
+    status_label = tk.Label(header_window, text="Translating..." if enabled else "Paused", font=("Arial", 10, "bold"),
+        fg="white", bg="#221b23", anchor="w")
+    status_label.pack(side="left", padx=(8,0), pady=2, fill="x", expand=True)
+    menu_btn = tk.Button(header_window, text="☰", font=("Arial", 13, "bold"),
+        bg="#221b23", fg="#ffd700", bd=0, relief="flat", cursor="hand2")
+    menu_btn.pack(side="right", padx=(0,7), pady=2)
+    def show_overlay_menu(event=None):
+        enable_overlay_drag_mode()
+        menu = tk.Menu(header_window, tearoff=0)
+        menu.add_command(label="Toggle On/Off", command=lambda: toggle_enabled(None, None))
+        menu.add_command(label="Snap Overlay Back", command=lambda: snap_overlay_back())
+        menu.add_separator()
+        menu.add_command(label="Reselect Region", command=lambda: main_root.after(0, reselect_region))
+        menu.add_command(label="Font Size: Auto", command=lambda: set_font_mode_auto(None, None))
+        menu.add_command(label="Font Size: Small (9)", command=lambda: set_font_size_fixed(9)(None, None))
+        menu.add_command(label="Font Size: Medium (12)", command=lambda: set_font_size_fixed(12)(None, None))
+        menu.add_command(label="Font Size: Large (16)", command=lambda: set_font_size_fixed(16)(None, None))
+        menu.add_separator()
+        menu.add_command(label="Border: None", command=lambda: set_border_mode("none"))
+        menu.add_command(label="Border: Thin", command=lambda: set_border_mode("thin"))
+        menu.add_separator()
+        menu.add_command(label="Scan Interval: 1s", command=lambda: set_scan_interval(0)(None, None))
+        menu.add_command(label="Scan Interval: 2s", command=lambda: set_scan_interval(1)(None, None))
+        menu.add_command(label="Scan Interval: 4s", command=lambda: set_scan_interval(2)(None, None))
+        menu.add_command(label="Scan Interval: 6s", command=lambda: set_scan_interval(3)(None, None))
+        menu.add_command(label="Scan Interval: 10s", command=lambda: set_scan_interval(4)(None, None))
+        menu.add_separator()
+        menu.add_command(label="View Logs", command=lambda: view_logs(None, None))
+        menu.add_command(label="Show Last Error", command=lambda: show_last_error(None, None))
+        menu.add_command(label="Test Overlay", command=lambda: test_overlay(None, None))
+        menu.add_separator()
+        menu.add_command(label="Help / Instructions", command=lambda: show_help(None, None))
+        menu.add_command(label="Exit", command=lambda: quit_app(None, None))
+        try:
+            menu.tk_popup(header_window.winfo_x()+header_window.winfo_width()-50, header_window.winfo_y()+30)
+        finally:
+            menu.grab_release()
+    menu_btn.config(command=show_overlay_menu)
+
+def update_header_window(x, y, width):
+    if header_window and header_window.winfo_exists():
+        header_window.geometry(f"{width}x36+{x}+{max(0, y-36)}")
+
+def hide_header_window():
+    global header_window
+    if header_window and header_window.winfo_exists():
+        header_window.withdraw()
+
 # === SNAP BACK ===
 
 def snap_overlay_back(icon=None, item=None):
@@ -236,11 +376,19 @@ def snap_overlay_back(icon=None, item=None):
         width = x2 - x1
         height = y2 - y1
         overlay_window.geometry(f"{width}x{height}+{x1}+{y1}")
+        update_header_window(x1, y1, width)
         set_status("Overlay snapped back", temporary=True)
         log_action(f"Overlay snapped back to ({x1},{y1})")
     else:
         set_status("Snap back failed", temporary=True)
         log_action("Snap back failed: overlay or region missing")
+
+# === BORDER CONFIG ===
+
+def set_border_mode(mode):
+    global border_mode
+    border_mode = mode
+    show_translation("")
 
 # === TRANSLATION / OCR with TIMEOUT ===
 
@@ -265,34 +413,37 @@ def get_text_from_chat():
     if not capture_region:
         return ""
     try:
-        hide_overlay()
-        set_status("Translating...", temporary=False)
-        time.sleep(0.08)
+        start_busy_animation()
+        # Do not hide overlay; just blank text momentarily!
+        if overlay_label and overlay_label.winfo_exists():
+            overlay_label.config(text="")
         image = ImageGrab.grab(bbox=capture_region)
-        # OCR with timeout!
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(ocr_worker, image)
             try:
-                return future.result(timeout=3)
+                text = future.result(timeout=3)
             except concurrent.futures.TimeoutError:
                 log_error("OCR timed out (stuck on image_to_string).")
                 set_status("OCR Timeout – retrying", temporary=True)
-                return "[OCR Timeout]"
+                text = "[OCR Timeout]"
+        stop_busy_animation()
+        return text
     except Exception as e:
         log_error(f"OCR error: {e}")
+        stop_busy_animation()
         set_status("OCR Error", temporary=True)
         return ""
 
 # === OVERLAY DRAW/UPDATE ===
 
 def _show_translation_tk(text):
-    global overlay_window, overlay_label, overlay_position, current_font_size, font_mode, status_label, menu_btn
+    global overlay_window, overlay_label, overlay_position, current_font_size, font_mode, status_label, menu_btn, header_window
     try:
         if not enabled:
             log_action("Overlay not shown (disabled)")
             if overlay_window:
                 overlay_window.withdraw()
-            set_status("Paused")
+            hide_header_window()
             return
 
         x1, y1, x2, y2 = capture_region
@@ -302,14 +453,14 @@ def _show_translation_tk(text):
         text = _sanitize_text(text)
 
         if font_mode == "auto":
-            best_font_size = _get_fitting_font_size(text, region_width-10, region_height-36)
+            best_font_size = _get_fitting_font_size(text, region_width-10, region_height-8)
             font = ("Arial", best_font_size)
             overlay_width, overlay_height = region_width, region_height
         else:
             font = ("Arial", current_font_size)
             overlay_width, overlay_height = _get_text_bbox(text, font)
             overlay_width += 10
-            overlay_height += 36  # room for header/status
+            overlay_height += 8
 
         if overlay_position is not None:
             ox, oy = overlay_position
@@ -325,41 +476,10 @@ def _show_translation_tk(text):
             overlay_window.attributes("-alpha", 0.88)
             overlay_window.configure(bg="black")
             overlay_window.overrideredirect(True)
-
-            # HEADER/STATUS BAR
-            header = tk.Frame(overlay_window, bg="#221b23")
-            header.pack(fill="x", side="top")
-            global status_label, menu_btn
-            status_label = tk.Label(header, text="Translating...", font=("Arial", 10, "bold"), fg="white", bg="#221b23", anchor="w")
-            status_label.pack(side="left", padx=(8,0), pady=2, fill="x", expand=True)
-            menu_btn = tk.Button(header, text="☰", font=("Arial", 13, "bold"), bg="#221b23", fg="#ffd700", bd=0, relief="flat", cursor="hand2")
-            menu_btn.pack(side="right", padx=(0,7), pady=2)
-
-            def show_overlay_menu(event=None):
-                menu = tk.Menu(overlay_window, tearoff=0)
-                menu.add_command(label="Toggle On/Off", command=lambda: toggle_enabled(None, None))
-                menu.add_command(label="Snap Overlay Back", command=lambda: snap_overlay_back())
-                menu.add_separator()
-                menu.add_command(label="Reselect Region", command=lambda: main_root.after(0, reselect_region))
-                menu.add_command(label="Font Size: Auto", command=lambda: set_font_mode_auto(None, None))
-                menu.add_command(label="Font Size: Small (9)", command=lambda: set_font_size_fixed(9)(None, None))
-                menu.add_command(label="Font Size: Medium (12)", command=lambda: set_font_size_fixed(12)(None, None))
-                menu.add_command(label="Font Size: Large (16)", command=lambda: set_font_size_fixed(16)(None, None))
-                menu.add_separator()
-                menu.add_command(label="Scan Interval: 1s", command=lambda: set_scan_interval(0)(None, None))
-                menu.add_command(label="Scan Interval: 2s", command=lambda: set_scan_interval(1)(None, None))
-                menu.add_command(label="Scan Interval: 4s", command=lambda: set_scan_interval(2)(None, None))
-                menu.add_command(label="Scan Interval: 6s", command=lambda: set_scan_interval(3)(None, None))
-                menu.add_command(label="Scan Interval: 10s", command=lambda: set_scan_interval(4)(None, None))
-                menu.add_separator()
-                menu.add_command(label="View Logs", command=lambda: view_logs(None, None))
-                menu.add_command(label="Show Last Error", command=lambda: show_last_error(None, None))
-                menu.add_command(label="Test Overlay", command=lambda: test_overlay(None, None))
-                menu.add_separator()
-                menu.add_command(label="Help / Instructions", command=lambda: show_help(None, None))
-                menu.add_command(label="Exit", command=lambda: quit_app(None, None))
-                menu.tk_popup(overlay_window.winfo_x()+overlay_window.winfo_width()-50, overlay_window.winfo_y()+30)
-            menu_btn.config(command=show_overlay_menu)
+            if border_mode == "thin":
+                overlay_window.configure(highlightthickness=2, highlightbackground="#ffd700")
+            else:
+                overlay_window.configure(highlightthickness=0)
 
             overlay_label = tk.Label(
                 overlay_window,
@@ -369,25 +489,31 @@ def _show_translation_tk(text):
                 fg="yellow",
                 justify="left",
                 anchor="nw",
-                wraplength=(overlay_width-10 if font_mode == "auto" else 0)
+                wraplength=overlay_width-8
             )
-            overlay_label.pack(fill="both", expand=True, padx=5, pady=(0,5))
+            overlay_label.pack(fill="both", expand=True, padx=5, pady=5)
 
             set_overlay_clickthrough(True)
             update_overlay_drag_bindings()
             log_action("Created overlay window")
         else:
             overlay_window.geometry(f"{overlay_width}x{overlay_height}+{ox}+{oy}")
+            if border_mode == "thin":
+                overlay_window.configure(highlightthickness=2, highlightbackground="#ffd700")
+            else:
+                overlay_window.configure(highlightthickness=0)
+            overlay_label.config(font=font, wraplength=overlay_width-8)
 
-        overlay_label.config(text=text, font=font, wraplength=(overlay_width-10 if font_mode == "auto" else 0))
-        if status_label:
-            status_label.config(text="Translating..." if enabled else "Paused")
+        overlay_label.config(text=text)
         overlay_window.deiconify()
         overlay_window.lift()
-        set_overlay_clickthrough(not move_mode)
+        set_overlay_clickthrough(True)
         update_overlay_drag_bindings()
-        log_action(f"Updated overlay with new translation, font_mode={font_mode}, size={font[1]}")
 
+        # Show/move header window
+        show_header_window(ox, oy, overlay_width)
+        header_window.deiconify()
+        header_window.lift()
     except Exception:
         log_error(traceback.format_exc())
 
@@ -398,6 +524,9 @@ def hide_overlay():
     global overlay_window
     if overlay_window:
         overlay_window.withdraw()
+        hide_header_window()
+
+# === MONITOR/LOOP ===
 
 def monitor_chat():
     global last_hash
@@ -425,35 +554,18 @@ def start_monitoring():
     monitor_thread.start()
     log_action("Started chat monitor thread")
 
-# === HELP WINDOW ===
-
-def show_help_window():
-    log_action("Help window opened")
-    set_status("Help opened", temporary=True)
-    help_win = tk.Toplevel(main_root)
-    help_win.title("L2T Overlay Help / Instructions")
-    help_win.geometry("700x570+400+120")
-    help_win.configure(bg="#222")
-    text = tk.Text(help_win, font=("Arial", 13), bg="#222", fg="white", wrap="word")
-    text.insert("1.0", HELP_TEXT.strip())
-    text.config(state="disabled")
-    text.pack(padx=16, pady=16, fill="both", expand=True)
-    tk.Button(help_win, text="Close", font=("Arial", 12), command=help_win.destroy).pack(pady=8)
-    help_win.lift()
-
-# === REGION SELECTOR WITH GLASS EFFECT ===
+# === REGION SELECTOR ===
 
 def select_region(allow_cancel=True):
     global selecting_region, capture_region, overlay_position
     selecting_region = True
     region = []
     overlay_position = None  # reset output position to match region
-    set_status("Select region (ESC to cancel)")
 
     root = tk.Toplevel(main_root)
     root.attributes("-fullscreen", True)
     root.attributes("-alpha", 1.0)
-    root.configure(bg="black")
+    root.configure(bg='black')
     root.title("Select Chat Region")
 
     try:
@@ -464,9 +576,9 @@ def select_region(allow_cancel=True):
 
     screen_w = root.winfo_screenwidth()
     screen_h = root.winfo_screenheight()
-    screen_pil = screen_image.resize((screen_w, screen_h)).convert("RGB")
+    screen_pil = screen_image.resize((screen_w, screen_h)).convert('RGB')
 
-    canvas = tk.Canvas(root, bg="black", highlightthickness=0)
+    canvas = tk.Canvas(root, bg='black', highlightthickness=0)
     canvas.pack(fill=tk.BOTH, expand=True)
 
     screen_photo_img = ImageTk.PhotoImage(screen_pil)
@@ -505,7 +617,7 @@ def select_region(allow_cancel=True):
         if selection_box:
             canvas.delete(selection_box)
             selection_box = None
-        selection_box = canvas.create_rectangle(start_x, start_y, start_x, start_y, outline="red", width=3)
+        selection_box = canvas.create_rectangle(start_x, start_y, start_x, start_y, outline='red', width=3)
         update_overlay(start_x, start_y, start_x, start_y)
         instruction_label.lift()
 
@@ -553,6 +665,8 @@ def reselect_region():
         overlay_window.withdraw()
     select_region()
     log_action("Region reselected by user.")
+    show_translation("")    
+
 
 # === SYSTEM TRAY ===
 
@@ -587,6 +701,11 @@ def set_scan_interval(idx):
         log_action(f"Scan interval set to {SCAN_INTERVALS[idx]}s")
     return handler
 
+def set_border_mode_tray(mode):
+    def handler(icon, item):
+        set_border_mode(mode)
+    return handler
+
 def view_logs(icon, item):
     log_action("Opened logs via tray")
     set_status("Opening logs.txt", temporary=True)
@@ -618,11 +737,16 @@ def test_overlay(icon, item):
 def show_help(icon, item):
     main_root.after(0, show_help_window)
 
-def quit_app(icon, item):
+def quit_app(icon=None, item=None):
     log_action("Exiting app via tray/menu")
     set_status("Exiting...", temporary=True)
-    icon.stop()
+    try:
+        if icon is not None:
+            icon.stop()
+    except Exception:
+        pass
     os._exit(0)
+
 
 def setup_tray():
     font_menu = pystray.Menu(
@@ -631,10 +755,15 @@ def setup_tray():
         pystray.MenuItem("Medium (12)", set_font_size_fixed(12)),
         pystray.MenuItem("Large (16)", set_font_size_fixed(16))
     )
+    border_menu = pystray.Menu(
+        pystray.MenuItem("None", set_border_mode_tray("none")),
+        pystray.MenuItem("Thin", set_border_mode_tray("thin")),
+    )
     overlay_menu = pystray.Menu(
         pystray.MenuItem("Toggle On/Off", toggle_enabled),
         pystray.MenuItem("Snap Overlay Back", snap_overlay_back),
         pystray.MenuItem("Font Size", font_menu),
+        pystray.MenuItem("Border", border_menu),
     )
     scan_menu = pystray.Menu(
         pystray.MenuItem("1s (Fast)", set_scan_interval(0)),
@@ -651,10 +780,9 @@ def setup_tray():
 
     def tray_thread():
         try:
-            from PIL import Image
             icon = pystray.Icon(
                 "ChatTranslator",
-                Image.open(ICON_FILE),
+                generate_tray_icon(),
                 "L2 Chat Translator",
                 menu=pystray.Menu(
                     pystray.MenuItem("Overlay", overlay_menu),
@@ -671,6 +799,21 @@ def setup_tray():
 
     threading.Thread(target=tray_thread, daemon=True).start()
     log_action("System tray setup complete")
+
+# === HELP ===
+
+def show_help_window():
+    log_action("Help window opened")
+    help_win = tk.Toplevel(main_root)
+    help_win.title("L2T Overlay Help / Instructions")
+    help_win.geometry("730x660+400+120")
+    help_win.configure(bg="#222")
+    text = tk.Text(help_win, font=("Arial", 13), bg="#222", fg="white", wrap="word")
+    text.insert("1.0", HELP_TEXT.strip())
+    text.config(state="disabled")
+    text.pack(padx=16, pady=16, fill="both", expand=True)
+    tk.Button(help_win, text="Close", font=("Arial", 12), command=help_win.destroy).pack(pady=8)
+    help_win.lift()
 
 # === MAIN ===
 
