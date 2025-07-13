@@ -46,8 +46,8 @@ sys.excepthook = handle_exception
 # === CONFIG ===
 
 pytesseract.pytesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-SCAN_INTERVALS = [1, 2, 4, 6, 10]
-scan_interval_idx = 1  # default to 2s
+SCAN_INTERVALS = [1, 2, 5, 10, 30]
+scan_interval_idx = 3  # default to 5s
 
 HELP_TEXT = """
 L2 Chat Overlay Translator – Help
@@ -111,6 +111,10 @@ main_root = tk.Tk()
 main_root.withdraw()
 border_mode = "none"  # "none" or "thin"
 
+# === BORDER BOX STATE ===
+region_border_enabled = True
+region_border_window = None
+
 # === HEADER WINDOW (MENU + STATUS) ===
 header_window = None
 status_label = None
@@ -136,6 +140,55 @@ def generate_tray_icon():
     draw.text(((size-tw)//2, (size-th)//2), text, font=font, fill=(255,215,0,255))
     return img
 
+# === REGION BORDER BOX ===
+
+def show_region_border():
+    global region_border_window, capture_region, region_border_enabled
+    if not region_border_enabled or not capture_region:
+        hide_region_border()
+        return
+    if region_border_window and region_border_window.winfo_exists():
+        region_border_window.destroy()
+    x1, y1, x2, y2 = capture_region
+    width = x2 - x1
+    height = y2 - y1
+    region_border_window = tk.Toplevel(main_root)
+    region_border_window.geometry(f"{width}x{height}+{x1}+{y1}")
+    region_border_window.overrideredirect(True)
+    region_border_window.wm_attributes("-topmost", True)
+    region_border_window.attributes("-alpha", 1.0)
+    region_border_window.wm_attributes("-transparentcolor", "blue")
+    # Make click-through
+    region_border_window.update_idletasks()
+    hwnd = win32gui.FindWindow(None, region_border_window.title())
+    style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+    win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE,
+                           style | win32con.WS_EX_LAYERED | win32con.WS_EX_TRANSPARENT)
+    canvas = tk.Canvas(region_border_window, bg="blue", highlightthickness=0)
+    canvas.pack(fill="both", expand=True)
+    border_color = "#FFD700"
+    border_width = 2
+    canvas.create_rectangle(
+        border_width // 2, border_width // 2,
+        width - border_width // 2, height - border_width // 2,
+        outline=border_color, width=border_width
+    )
+    region_border_window.lift()
+
+def hide_region_border():
+    global region_border_window
+    if region_border_window and region_border_window.winfo_exists():
+        region_border_window.destroy()
+        region_border_window = None
+
+def toggle_region_border(icon=None, item=None):
+    global region_border_enabled
+    region_border_enabled = not region_border_enabled
+    if region_border_enabled:
+        show_region_border()
+    else:
+        hide_region_border()
+
 # === STATUS UPDATE ===
 
 def set_status(msg, temporary=False):
@@ -158,7 +211,6 @@ def animate_busy_status():
     dots = "." * (1 + (busy_anim_dots % 3))
     set_status(f"Translating{dots}")
     busy_anim_dots = (busy_anim_dots + 1) % 3
-    # Only animate if label exists
     try:
         if status_label and status_label.winfo_exists():
             status_label.after(400, animate_busy_status)
@@ -247,7 +299,6 @@ def do_move(event):
     y = overlay_window.winfo_y() + event.y - overlay_window._drag_start_y
     overlay_window.geometry(f"+{x}+{y}")
     overlay_position = (x, y)
-    # Move header window too
     if header_window:
         hx = x
         hy = y - header_window.winfo_height()
@@ -287,12 +338,9 @@ def enable_overlay_drag_mode():
         if overlay_label:
             overlay_label.config(cursor="fleur")
         set_status("Drag overlay to move", temporary=True)
-        # Cancel any previous timer
         if hasattr(enable_overlay_drag_mode, 'timer_id'):
             overlay_window.after_cancel(enable_overlay_drag_mode.timer_id)
-        # Automatically return to click-through in 5 seconds
         enable_overlay_drag_mode.timer_id = overlay_window.after(5000, disable_overlay_drag_mode)
-        
 
 def disable_overlay_drag_mode():
     if overlay_window and overlay_window.winfo_exists():
@@ -302,7 +350,6 @@ def disable_overlay_drag_mode():
         if overlay_label:
             overlay_label.config(cursor="")
         set_status("Translating..." if enabled else "Paused")
-
 
 def show_header_window(x, y, width):
     global header_window, status_label, menu_btn
@@ -316,8 +363,6 @@ def show_header_window(x, y, width):
     header_window.attributes("-alpha", 0.94)
     header_window.overrideredirect(True)
     header_window.configure(bg="#221b23")
-    # Thin border for header? Always none.
-    # --- HEADER CONTENT ---
     status_label = tk.Label(header_window, text="Translating..." if enabled else "Paused", font=("Arial", 10, "bold"),
         fg="white", bg="#221b23", anchor="w")
     status_label.pack(side="left", padx=(8,0), pady=2, fill="x", expand=True)
@@ -339,11 +384,13 @@ def show_header_window(x, y, width):
         menu.add_command(label="Border: None", command=lambda: set_border_mode("none"))
         menu.add_command(label="Border: Thin", command=lambda: set_border_mode("thin"))
         menu.add_separator()
+        menu.add_checkbutton(label="Show Region Border", command=toggle_region_border, onvalue=True, offvalue=False, variable=tk.BooleanVar(value=region_border_enabled))
+        menu.add_separator()
         menu.add_command(label="Scan Interval: 1s", command=lambda: set_scan_interval(0)(None, None))
         menu.add_command(label="Scan Interval: 2s", command=lambda: set_scan_interval(1)(None, None))
-        menu.add_command(label="Scan Interval: 4s", command=lambda: set_scan_interval(2)(None, None))
-        menu.add_command(label="Scan Interval: 6s", command=lambda: set_scan_interval(3)(None, None))
-        menu.add_command(label="Scan Interval: 10s", command=lambda: set_scan_interval(4)(None, None))
+        menu.add_command(label="Scan Interval: 5s", command=lambda: set_scan_interval(2)(None, None))
+        menu.add_command(label="Scan Interval: 10s", command=lambda: set_scan_interval(3)(None, None))
+        menu.add_command(label="Scan Interval: 30s", command=lambda: set_scan_interval(4)(None, None))
         menu.add_separator()
         menu.add_command(label="View Logs", command=lambda: view_logs(None, None))
         menu.add_command(label="Show Last Error", command=lambda: show_last_error(None, None))
@@ -414,7 +461,6 @@ def get_text_from_chat():
         return ""
     try:
         start_busy_animation()
-        # Do not hide overlay; just blank text momentarily!
         if overlay_label and overlay_label.winfo_exists():
             overlay_label.config(text="")
         image = ImageGrab.grab(bbox=capture_region)
@@ -444,6 +490,7 @@ def _show_translation_tk(text):
             if overlay_window:
                 overlay_window.withdraw()
             hide_header_window()
+            hide_region_border()
             return
 
         x1, y1, x2, y2 = capture_region
@@ -510,10 +557,15 @@ def _show_translation_tk(text):
         set_overlay_clickthrough(True)
         update_overlay_drag_bindings()
 
-        # Show/move header window
         show_header_window(ox, oy, overlay_width)
         header_window.deiconify()
         header_window.lift()
+
+        # SHOW OR UPDATE REGION BORDER BOX
+        if region_border_enabled:
+            show_region_border()
+        else:
+            hide_region_border()
     except Exception:
         log_error(traceback.format_exc())
 
@@ -525,6 +577,7 @@ def hide_overlay():
     if overlay_window:
         overlay_window.withdraw()
         hide_header_window()
+    hide_region_border()
 
 # === MONITOR/LOOP ===
 
@@ -655,6 +708,9 @@ def select_region(allow_cancel=True):
         capture_region = tuple(region)
         set_status("Region updated", temporary=True)
         log_action(f"Region set to {capture_region}")
+        show_region_border()
+    else:
+        hide_region_border()
 
 def reselect_region():
     global capture_region, overlay_window, overlay_position
@@ -665,8 +721,7 @@ def reselect_region():
         overlay_window.withdraw()
     select_region()
     log_action("Region reselected by user.")
-    show_translation("")    
-
+    show_translation("")
 
 # === SYSTEM TRAY ===
 
@@ -747,7 +802,6 @@ def quit_app(icon=None, item=None):
         pass
     os._exit(0)
 
-
 def setup_tray():
     font_menu = pystray.Menu(
         pystray.MenuItem("Auto-fit", set_font_mode_auto),
@@ -764,13 +818,14 @@ def setup_tray():
         pystray.MenuItem("Snap Overlay Back", snap_overlay_back),
         pystray.MenuItem("Font Size", font_menu),
         pystray.MenuItem("Border", border_menu),
+        pystray.MenuItem("Show Region Border", toggle_region_border, checked=lambda item: region_border_enabled)
     )
     scan_menu = pystray.Menu(
         pystray.MenuItem("1s (Fast)", set_scan_interval(0)),
-        pystray.MenuItem("2s (Default)", set_scan_interval(1)),
-        pystray.MenuItem("4s", set_scan_interval(2)),
-        pystray.MenuItem("6s", set_scan_interval(3)),
-        pystray.MenuItem("10s (Slow)", set_scan_interval(4))
+        pystray.MenuItem("2s", set_scan_interval(1)),
+        pystray.MenuItem("5s (Default)", set_scan_interval(2)),
+        pystray.MenuItem("10s", set_scan_interval(3)),
+        pystray.MenuItem("30s (Slow)", set_scan_interval(4))
     )
     diagnostics_menu = pystray.Menu(
         pystray.MenuItem("View Logs", view_logs),
@@ -823,6 +878,7 @@ if __name__ == "__main__":
     select_region()
 
     if capture_region:
+        show_region_border()
         start_monitoring()
         setup_tray()
         main_root.mainloop()
