@@ -63,15 +63,15 @@ L2 Chat Overlay Translator – Help
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FEATURES
 • Translates your Lineage 2 chat (Russian → English) and overlays result in-place.
-• Overlay is click-through by default. Hold Scroll Lock to drag/move the overlay window.
-• Tray icon and hotkeys control everything. All logs/errors saved to logs.txt.
+• Overlay is click-through by default. Hold Ctrl+Alt to drag/move the overlay window.
+• Tray icon and global hotkeys control everything. All logs/errors saved to logs.txt.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SHORTCUTS
-• Scroll Lock         — Enable/Disable overlay + translation
-• Scroll Lock + R     — Reselect chat region (output snaps back to region)
-• Scroll Lock + H     — Show this help window
-• Scroll Lock + Drag  — Move overlay with the mouse while holding key
+• Ctrl+Alt+T   — Enable/Disable overlay + translation
+• Ctrl+Alt+R   — Reselect chat region (output snaps back to region)
+• Ctrl+Alt+H   — Show this help window
+• Ctrl+Alt+Drag — Move overlay with the mouse while holding keys
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TRAY MENU
@@ -85,8 +85,8 @@ USAGE NOTES
 • On startup, select your in-game chat region by click+drag. (ESC cancels.)
 • Overlay never captures itself (temporarily hidden during OCR).
 • Dragging the overlay does NOT affect the region being translated.
-• Overlay is click-through except when you hold Scroll Lock.
-• Use "Snap Overlay Back" in tray or reselect region (Scroll Lock + R) to realign overlay.
+• Overlay is click-through except when you hold Ctrl+Alt.
+• Use "Snap Overlay Back" in tray or reselect region (Ctrl+Alt+R) to realign overlay.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TROUBLESHOOTING / LIMITATIONS
@@ -382,31 +382,35 @@ def show_help_window():
 
 def listen_for_hotkeys():
     global enabled, overlay_window, move_mode
-    scroll_prev = False
+    ctrlalt_prev = False
     while True:
         time.sleep(0.03)
-        scroll = keyboard.is_pressed("scroll lock")
-        move_mode = scroll
-        if overlay_window and overlay_window.winfo_exists():
-            set_overlay_clickthrough(not move_mode)
-            update_overlay_drag_bindings()
-        # Main toggle (Scroll Lock)
-        if keyboard.is_pressed("scroll lock") and not scroll_prev:
+        ctrl = keyboard.is_pressed("ctrl")
+        alt = keyboard.is_pressed("alt")
+        ctrlalt = ctrl and alt
+        if ctrlalt != ctrlalt_prev:
+            ctrlalt_prev = ctrlalt
+            move_mode = ctrlalt
+            if overlay_window and overlay_window.winfo_exists():
+                if move_mode:
+                    set_overlay_clickthrough(False)
+                else:
+                    set_overlay_clickthrough(True)
+                update_overlay_drag_bindings()
+        # Process hotkeys for functions (so hotkeys don't interfere with drag detection)
+        if keyboard.is_pressed("ctrl+alt+t"):
             enabled = not enabled
             log_action(f"Toggled all: {'ON' if enabled else 'OFF'} (hotkey)")
             if not enabled:
                 hide_overlay()
             time.sleep(0.3)
-        # Reselect region (Scroll Lock + R)
-        if scroll and keyboard.is_pressed("r"):
+        if keyboard.is_pressed("ctrl+alt+r"):
             log_action("Region reselect triggered (hotkey)")
             main_root.after(0, reselect_region)
             time.sleep(0.3)
-        # Show help (Scroll Lock + H)
-        if scroll and keyboard.is_pressed("h"):
+        if keyboard.is_pressed("ctrl+alt+h"):
             main_root.after(0, show_help_window)
             time.sleep(0.3)
-        scroll_prev = scroll
 
 def start_hotkey_listener():
     global hotkey_thread
@@ -602,7 +606,7 @@ def setup_tray():
     )
 
     overlay_menu = pystray.Menu(
-        pystray.MenuItem("Toggle On/Off (Scroll Lock)", toggle_enabled),
+        pystray.MenuItem("Toggle On/Off (Ctrl+Alt+T)", toggle_enabled),
         pystray.MenuItem("Snap Overlay Back", snap_overlay_back),
         pystray.MenuItem("Font Size", font_menu),
     )
@@ -628,10 +632,10 @@ def setup_tray():
                 "L2 Chat Translator",
                 menu=pystray.Menu(
                     pystray.MenuItem("Overlay", overlay_menu),
-                    pystray.MenuItem("Reselect Region (Scroll Lock + R)", lambda icon, item: main_root.after(0, reselect_region)),
+                    pystray.MenuItem("Reselect Region (Ctrl+Alt+R)", lambda icon, item: main_root.after(0, reselect_region)),
                     pystray.MenuItem("Scan", scan_menu),
                     pystray.MenuItem("Diagnostics", diagnostics_menu),
-                    pystray.MenuItem("Help / Instructions (Scroll Lock + H)", show_help),
+                    pystray.MenuItem("Help / Instructions (Ctrl+Alt+H)", show_help),
                     pystray.MenuItem("Exit", quit_app)
                 )
             )

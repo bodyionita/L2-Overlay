@@ -85,13 +85,13 @@ pyinstaller --onefile --icon l2t.ico main.py
 
 ### ⌨️ **Shortcuts**
 
-| Shortcut                | Action                                      |
-|-------------------------|---------------------------------------------|
-| Scroll Lock             | Toggle translation & overlay on/off         |
-| Scroll Lock + R         | Reselect chat region                        |
-| Scroll Lock + H         | Show help/instructions window               |
-| Scroll Lock + Drag      | Move overlay window (while key held)        |
+| Shortcut             | Action                                           |
+|----------------------|-------------------------------------------------|
+| Ctrl + Alt + T       | Toggle translation & overlay on/off             |
+| Ctrl + Alt + R       | Reselect chat region                            |
+| Ctrl + Alt + H       | Show this help/instructions window              |
 | **(Tray menu only)** | Snap overlay back to chat region                |
+| **Ctrl + Alt + Drag**| Move overlay window (while keys held)           |
 
 ---
 
