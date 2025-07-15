@@ -245,7 +245,7 @@ def _sanitize_text(text):
         else:
             new_lines.append(line)
             prev_blank = False
-    return "\n".join(new_lines)
+    return "\n".join(new_lines).replace("\n\n","\n").replace("\n\n","\n")
 
 def _get_fitting_font_size(text, width, height, min_size=8, max_size=32, font_name="Arial"):
     test_root = tk.Tk()
